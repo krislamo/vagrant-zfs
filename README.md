@@ -113,8 +113,9 @@ the following available settings:
   - Default: `16`
   - Number of virtual disks to create (max 676)
 - `DISK_SIZE`
-  - Default: `18T`
+  - Default: `16763G`
   - Size of each virtual disk (sparse allocation)
+  - Derived from: 18 TB x (1000^4 / 1024^4) = 16.37 TiB or ~16763 GiB
 
 ## Copyright and License
 

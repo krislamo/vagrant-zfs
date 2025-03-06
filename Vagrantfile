@@ -9,14 +9,18 @@ if File.exist?(settings_path)
   settings = YAML.load_file(settings_path)
 end
 
+# Can't use `||` here because `false || true` evaluates to true
+VAGRANT_PROV = settings.key?('VAGRANT_PROV') ? settings['VAGRANT_PROV'] : true
 VAGRANT_NAME = settings['VAGRANT_NAME'] || 'zfstest'
 VAGRANT_BOX  = settings['VAGRANT_BOX']  || 'debian/bookworm64'
-VAGRANT_PROV = settings['VAGRANT_PROV'] || true
 VAGRANT_CPUS = settings['VAGRANT_CPUS'] || 4
 VAGRANT_MEM  = settings['VAGRANT_MEM']  || 4096
 VAGRANT_SH   = settings['VAGRANT_SH']   || ''
 NUM_DISKS    = settings['NUM_DISKS']    || 16
-DISK_SIZE    = settings['DISK_SIZE']    || '18T'
+# 18 TB decimal/SI to binary/IEC conversion:
+# 18 TB x (1000^4 / 1024^4) = 16.37 TiB
+# 16.37 TiB x 1024 = ~16763 GiB
+DISK_SIZE    = settings['DISK_SIZE']    || '16763G'
 
 Vagrant.configure("2") do |config|
   config.vm.box = VAGRANT_BOX
@@ -49,34 +53,7 @@ Vagrant.configure("2") do |config|
     end
 
   if VAGRANT_PROV
-    config.vm.provision "shell", inline: <<-SHELL
-      if [ -f /etc/os-release ]; then
-        . /etc/os-release
-        OS_ID=$ID
-      else
-        echo "Cannot detect OS, exiting"
-        exit 1
-      fi
-
-      if [ "$OS_ID" = "debian" ]; then
-        export DEBIAN_FRONTEND=noninteractive
-        SOURCES_LIST="/etc/apt/sources.list.d/contrib.list"
-        echo "deb http://deb.debian.org/debian/ ${VERSION_CODENAME} contrib" > "$SOURCES_LIST"
-        apt-get update
-        apt-get install -y linux-headers-$(uname -r)
-        apt-get install -y zfsutils-linux
-      elif [ "$OS_ID" = "rocky" ]; then
-        dnf install -y epel-release
-        dnf config-manager --enable epel
-        dnf install -y https://zfsonlinux.org/epel/zfs-release-2-3$(rpm --eval "%{dist}").noarch.rpm
-        dnf config-manager --disable zfs
-        dnf config-manager --enable zfs-kmod
-        dnf install -y zfs
-      else
-        echo "Unsupported OS: $OS_ID"
-        exit 1
-      fi
-    SHELL
+    config.vm.provision "shell", path: "provision.sh"
   end
 
   if VAGRANT_SH != ''
